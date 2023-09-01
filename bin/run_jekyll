@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# shellcheck shell=bash
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+##@Version           :  202308250247-git
+# @@Author           :  Jason Hempstead
+# @@Contact          :  git-admin@casjaysdev.pro
+# @@License          :  WTFPL
+# @@ReadME           :  run_jekyll --help
+# @@Copyright        :  Copyright: (c) 2023 Jason Hempstead, Casjays Developments
+# @@Created          :  Friday, Aug 25, 2023 02:47 EDT
+# @@File             :  run_jekyll
+# @@Description      :  jekyll wrapper script
+# @@Changelog        :  newScript
+# @@TODO             :  Refactor code
+# @@Other            :
+# @@Resource         :
+# @@Terminal App     :  no
+# @@sudo/root        :  no
+# @@Template         :  bash/system
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# shell check options
+# shellcheck disable=SC2016
+# shellcheck disable=SC2031
+# shellcheck disable=SC2120
+# shellcheck disable=SC2155
+# shellcheck disable=SC2199
+# shellcheck disable=SC2317
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+__is_htdocs_mounted && WORK_DIR="$WWW_ROOT_DIR"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+SERVICE_PORT="${SERVICE_PORT:-4000}"
+WORK_DIR="${WORK_DIR:-/data/jekyll}"
+SERVE_COMMAND="bundler exec jekyll serve --force_polling -H 0.0.0.0 -P $SERVICE_PORT"
+[ "$(ls -A "$WORK_DIR" 2>/dev/null)" -eq 0 ] && WORK_DIR="${WWW_ROOT_DIR:-/usr/share/webapps/jekyll}"
+[ -f "$WORK_DIR/.env" ] && . "$WORK_DIR/.env"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+[ -f "$WORK_DIR/.nojekyll" ] && HAS_HTML="true"
+[ -f "$WORK_DIR/Gemfile" ] && HAS_GEMFILE="true"
+[ -f "$WORK_DIR/_config.yml" ] && HAS_JEKYLL="true"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+case "$1" in
+serv | serve | server | dev | develop)
+  shift 1
+  if [ -z "$HAS_HTML" ] && [ -z "$HAS_GEMFILE" ] && [ -z "$HAS_JEKYLL" ]; then
+    echo "NOTE: I don't see a .nojekyll, Gemfile, or a _config.yml so I don't think there's a jekyll site here"
+    echo "Either you didn't mount a volume, or you mounted it incorrectly."
+    echo "Be sure you're in your jekyll site root and use something like this to launch"
+    echo "docker run --name jekyll --rm -p 15999:$SERVICE_PORT -v \$PWD:/app casjaysdevdocker/jekyll"
+    echo "To run just a server create a .nojekyll file"
+  else
+    mkdir -p "$WORK_DIR" && cd "$WORK_DIR" || exit 1
+    if [ ! -f "$workdir/.nojekyll" ] && [ "$HAS_GEMFILE" = "true" ]; then
+      bundle install --retry 5 --jobs 20
+    fi
+  fi
+  exec $SERVE_COMMAND "$@"
+  ;;
+build)
+  shift 1
+  exec bundle exec jekyll build "$@"
+  ;;
+*)
+  echo "Usage: run_jekyll server or run_jekyll build" && sleep 60
+  launching $SERVE_COMMAND && sleep 5 && exec $0 serv
+  ;;
+esac
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# end
